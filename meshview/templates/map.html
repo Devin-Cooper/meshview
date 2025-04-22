@@ -27,6 +27,16 @@
     .filter-checkbox {
         margin: 0 10px;
     }
+    .time-filter-container {
+        width: 50%;
+        margin: 10px auto;
+        padding: 0 20px;
+    }
+    .time-filter-label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}
 
@@ -43,9 +53,9 @@
 
 <div id="filter-container">
     <input type="checkbox" class="filter-checkbox" id="filter-routers-only"> Show Routers Only
-    <div class="time-filter-container" style="margin-top: 10px;">
-        <label for="time-filter">Time Filter: <span id="time-filter-value">All Time</span></label>
-        <input type="range" class="form-range" id="time-filter" min="1" max="24" value="24" step="1">
+    <div class="time-filter-container">
+        <label class="time-filter-label" for="time-filter">Time Filter: <span id="time-filter-value">All Time</span></label>
+        <input type="range" class="form-range" id="time-filter" min="0" max="6" value="6" step="1">
     </div>
 </div>
 
@@ -189,13 +199,40 @@ var nodes = [
         filterContainer.innerHTML += filterHtml;
     });
 
+    function getTimeFilterValue(hours) {
+        switch(hours) {
+            case 0: return 1;      // 1 hour
+            case 1: return 8;      // 8 hours
+            case 2: return 12;     // 12 hours
+            case 3: return 24;     // 24 hours
+            case 4: return 168;    // 1 week
+            case 5: return 720;    // 1 month
+            case 6: return Infinity; // All time
+            default: return Infinity;
+        }
+    }
+
+    function getTimeFilterLabel(hours) {
+        switch(hours) {
+            case 0: return "1 hour";
+            case 1: return "8 hours";
+            case 2: return "12 hours";
+            case 3: return "24 hours";
+            case 4: return "1 week";
+            case 5: return "1 month";
+            case 6: return "All Time";
+            default: return "All Time";
+        }
+    }
+
     function updateMarkers() {
         let showRoutersOnly = document.getElementById("filter-routers-only").checked;
-        let timeFilter = document.getElementById("time-filter").value;
+        let timeFilterIndex = document.getElementById("time-filter").value;
         let timeFilterValue = document.getElementById("time-filter-value");
+        let timeFilterHours = getTimeFilterValue(parseInt(timeFilterIndex));
         
         // Update the time filter display
-        timeFilterValue.textContent = timeFilter === "24" ? "All Time" : timeFilter + " hours";
+        timeFilterValue.textContent = getTimeFilterLabel(parseInt(timeFilterIndex));
 
         channels.forEach(channel => {
             let filterId = `filter-${channel.replace(/\s+/g, '-').toLowerCase()}`;
@@ -203,7 +240,7 @@ var nodes = [
 
             markers[channel].forEach(obj => {
                 let hoursSinceLastSeen = getHoursSinceLastSeen(obj.marker.options.lastUpdate);
-                let timeFiltered = timeFilter === "24" || hoursSinceLastSeen <= parseInt(timeFilter);
+                let timeFiltered = timeFilterHours === Infinity || hoursSinceLastSeen <= timeFilterHours;
                 let shouldShow = isChecked && (!showRoutersOnly || obj.isRouter) && timeFiltered;
                 shouldShow ? map.addLayer(obj.marker) : map.removeLayer(obj.marker);
             });
