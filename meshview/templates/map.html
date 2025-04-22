@@ -43,6 +43,10 @@
 
 <div id="filter-container">
     <input type="checkbox" class="filter-checkbox" id="filter-routers-only"> Show Routers Only
+    <div class="time-filter-container" style="margin-top: 10px;">
+        <label for="time-filter">Time Filter: <span id="time-filter-value">All Time</span></label>
+        <input type="range" class="form-range" id="time-filter" min="1" max="24" value="24" step="1">
+    </div>
 </div>
 
 <script>
@@ -89,6 +93,13 @@ var nodes = [
         return seconds + "s";
     }
 
+    function getHoursSinceLastSeen(date) {
+        if (!date) return Infinity;
+        var now = new Date();
+        var diff = now - new Date(date);
+        return Math.floor(diff / (1000 * 60 * 60));
+    }
+
     const palette = [
         "#e6194b", // red
         "#4363d8", // blue
@@ -125,7 +136,7 @@ var nodes = [
     nodes.forEach(function(node) {
         if (node.lat !== null && node.long !== null) {
             let category = node.channel;
-            let isRouter = node.isRouter === "True"; // Convert from string
+            let isRouter = node.isRouter === "True";
 
             channels.add(category);
 
@@ -137,6 +148,7 @@ var nodes = [
                 fillColor: color,
                 fillOpacity: 1,
                 weight: 0.7,
+                lastUpdate: node.last_update // Store the last update time in the marker options
             };
 
             var popupContent = `
@@ -179,13 +191,20 @@ var nodes = [
 
     function updateMarkers() {
         let showRoutersOnly = document.getElementById("filter-routers-only").checked;
+        let timeFilter = document.getElementById("time-filter").value;
+        let timeFilterValue = document.getElementById("time-filter-value");
+        
+        // Update the time filter display
+        timeFilterValue.textContent = timeFilter === "24" ? "All Time" : timeFilter + " hours";
 
         channels.forEach(channel => {
             let filterId = `filter-${channel.replace(/\s+/g, '-').toLowerCase()}`;
             let isChecked = document.getElementById(filterId).checked;
 
             markers[channel].forEach(obj => {
-                let shouldShow = isChecked && (!showRoutersOnly || obj.isRouter);
+                let hoursSinceLastSeen = getHoursSinceLastSeen(obj.marker.options.lastUpdate);
+                let timeFiltered = timeFilter === "24" || hoursSinceLastSeen <= parseInt(timeFilter);
+                let shouldShow = isChecked && (!showRoutersOnly || obj.isRouter) && timeFiltered;
                 shouldShow ? map.addLayer(obj.marker) : map.removeLayer(obj.marker);
             });
         });
@@ -194,6 +213,9 @@ var nodes = [
     document.querySelectorAll(".filter-checkbox").forEach(input => {
         input.addEventListener("change", updateMarkers);
     });
+
+    // Add event listener for the time filter
+    document.getElementById("time-filter").addEventListener("input", updateMarkers);
 
 </script>
 
